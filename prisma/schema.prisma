@@ -1,0 +1,425 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Role {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @unique @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id              BigInt    @id @default(autoincrement())
+  roleId          BigInt    @map("role_id")
+  firstName       String    @map("first_name") @db.VarChar(100)
+  lastName        String    @map("last_name") @db.VarChar(100)
+  email           String    @unique @db.VarChar(255)
+  passwordHash    String?   @map("password_hash")
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(6)
+  status          String    @db.VarChar(20)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  role                    Role                     @relation(fields: [roleId], references: [id])
+  student                 Student?
+  teacher                 Teacher?
+  recordedAttendances     Attendance[]             @relation("RecordedByUser")
+  createdMarksFields      MarksField[]             @relation("CreatedByUser")
+  enteredStudentMarks     StudentMark[]            @relation("EnteredByUser")
+  finalizedResults        Result[]                 @relation("FinalizedByUser")
+  notifications           Notification[]
+  auditLogs               AuditLog[]
+  sessions                Session[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+
+  @@map("users")
+}
+
+model Student {
+  id                 BigInt   @id @default(autoincrement())
+  userId             BigInt   @unique @map("user_id")
+  registrationNumber String   @unique @map("registration_number") @db.VarChar(20)
+  gender             String   @db.VarChar(20)
+  dateOfBirth        DateTime @map("date_of_birth") @db.Date
+  phone              String?  @db.VarChar(30)
+  address            String
+  city               String   @db.VarChar(100)
+  province           String   @db.VarChar(100)
+  bloodGroup         String?  @map("blood_group") @db.VarChar(10)
+  bFormNumber        String?  @unique @map("b_form_number") @db.VarChar(50)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user        User         @relation(fields: [userId], references: [id])
+  enrollments Enrollment[]
+
+  @@map("students")
+}
+
+model Teacher {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt   @unique @map("user_id")
+  phone     String?  @db.VarChar(30)
+  address   String?
+  city      String?  @db.VarChar(100)
+  province  String?  @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user               User                @relation(fields: [userId], references: [id])
+  teacherAssignments TeacherAssignment[]
+
+  @@map("teachers")
+}
+
+model AcademicYear {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @unique @db.VarChar(50)
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+  status    String   @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  sections           Section[]
+  subjectOfferings   SubjectOffering[]
+  enrollments        Enrollment[]
+  teacherAssignments TeacherAssignment[]
+
+  @@map("academic_years")
+}
+
+model Class {
+  id           BigInt   @id @default(autoincrement())
+  name         String   @unique @db.VarChar(100)
+  displayOrder Int      @map("display_order")
+  status       String   @db.VarChar(20)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  sections         Section[]
+  subjectOfferings SubjectOffering[]
+  enrollments      Enrollment[]
+
+  @@map("classes")
+}
+
+model Section {
+  id             BigInt   @id @default(autoincrement())
+  academicYearId BigInt   @map("academic_year_id")
+  classId        BigInt   @map("class_id")
+  name           String   @db.VarChar(50)
+  status         String   @db.VarChar(20)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  academicYear       AcademicYear        @relation(fields: [academicYearId], references: [id])
+  class              Class               @relation(fields: [classId], references: [id])
+  enrollments        Enrollment[]
+  teacherAssignments TeacherAssignment[]
+  marksFields        MarksField[]
+
+  @@unique([academicYearId, classId, name])
+  @@map("sections")
+}
+
+model Subject {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @unique @db.VarChar(100)
+  code      String?  @unique @db.VarChar(50)
+  status    String   @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  subjectOfferings   SubjectOffering[]
+  teacherAssignments TeacherAssignment[]
+
+  @@map("subjects")
+}
+
+model SubjectOffering {
+  id             BigInt   @id @default(autoincrement())
+  academicYearId BigInt   @map("academic_year_id")
+  classId        BigInt   @map("class_id")
+  subjectId      BigInt   @map("subject_id")
+  displayOrder   Int      @map("display_order")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  academicYear   AcademicYear    @relation(fields: [academicYearId], references: [id])
+  class          Class           @relation(fields: [classId], references: [id])
+  subject        Subject         @relation(fields: [subjectId], references: [id])
+  marksFields    MarksField[]
+  resultSubjects ResultSubject[]
+
+  @@unique([academicYearId, classId, subjectId])
+  @@map("subject_offerings")
+}
+
+model Enrollment {
+  id             BigInt    @id @default(autoincrement())
+  studentId      BigInt    @map("student_id")
+  academicYearId BigInt    @map("academic_year_id")
+  classId        BigInt    @map("class_id")
+  sectionId      BigInt    @map("section_id")
+  startDate      DateTime  @map("start_date") @db.Date
+  endDate        DateTime? @map("end_date") @db.Date
+  status         String    @db.VarChar(20)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  student      Student       @relation(fields: [studentId], references: [id])
+  academicYear AcademicYear  @relation(fields: [academicYearId], references: [id])
+  class        Class         @relation(fields: [classId], references: [id])
+  section      Section       @relation(fields: [sectionId], references: [id])
+  attendances  Attendance[]
+  studentMarks StudentMark[]
+  results      Result[]
+
+  @@index([studentId])
+  @@index([academicYearId])
+  @@index([sectionId])
+  @@index([studentId, status])
+  @@map("enrollments")
+}
+
+model TeacherAssignment {
+  id             BigInt   @id @default(autoincrement())
+  academicYearId BigInt   @map("academic_year_id")
+  teacherId      BigInt   @map("teacher_id")
+  sectionId      BigInt   @map("section_id")
+  subjectId      BigInt?  @map("subject_id")
+  assignmentType String   @map("assignment_type") @db.VarChar(30)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  teacher      Teacher      @relation(fields: [teacherId], references: [id])
+  section      Section      @relation(fields: [sectionId], references: [id])
+  subject      Subject?     @relation(fields: [subjectId], references: [id])
+
+  @@index([academicYearId, sectionId, assignmentType])
+  @@index([academicYearId, sectionId, subjectId, assignmentType])
+  @@index([teacherId])
+  @@map("teacher_assignments")
+}
+
+model Attendance {
+  id             BigInt    @id @default(autoincrement())
+  enrollmentId   BigInt    @map("enrollment_id")
+  attendanceDate DateTime  @map("attendance_date") @db.Date
+  status         String    @db.VarChar(20)
+  recordedBy     BigInt    @map("recorded_by")
+  submittedAt    DateTime? @map("submitted_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  enrollment     Enrollment @relation(fields: [enrollmentId], references: [id])
+  recordedByUser User       @relation("RecordedByUser", fields: [recordedBy], references: [id])
+
+  @@unique([enrollmentId, attendanceDate])
+  @@index([attendanceDate])
+  @@map("attendance")
+}
+
+model MarksField {
+  id                BigInt   @id @default(autoincrement())
+  subjectOfferingId BigInt   @map("subject_offering_id")
+  sectionId         BigInt   @map("section_id")
+  name              String   @db.VarChar(100)
+  maximumMarks      Decimal  @map("maximum_marks") @db.Decimal(8, 2)
+  displayOrder      Int      @map("display_order")
+  createdBy         BigInt   @map("created_by")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  subjectOffering SubjectOffering @relation(fields: [subjectOfferingId], references: [id])
+  section         Section         @relation(fields: [sectionId], references: [id])
+  createdByUser   User            @relation("CreatedByUser", fields: [createdBy], references: [id])
+  studentMarks    StudentMark[]
+
+  @@map("marks_fields")
+}
+
+model StudentMark {
+  id            BigInt   @id @default(autoincrement())
+  marksFieldId  BigInt   @map("marks_field_id")
+  enrollmentId  BigInt   @map("enrollment_id")
+  obtainedMarks Decimal  @map("obtained_marks") @db.Decimal(8, 2)
+  enteredBy     BigInt   @map("entered_by")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  marksField    MarksField @relation(fields: [marksFieldId], references: [id])
+  enrollment    Enrollment @relation(fields: [enrollmentId], references: [id])
+  enteredByUser User       @relation("EnteredByUser", fields: [enteredBy], references: [id])
+
+  @@unique([marksFieldId, enrollmentId])
+  @@index([enrollmentId])
+  @@map("student_marks")
+}
+
+model GradingConfiguration {
+  id                       BigInt   @id @default(autoincrement())
+  name                     String   @unique @db.VarChar(100)
+  minimumPassingPercentage Decimal  @map("minimum_passing_percentage") @db.Decimal(5, 2)
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  gradeRules GradeRule[]
+  results    Result[]
+
+  @@map("grading_configurations")
+}
+
+model GradeRule {
+  id                     BigInt  @id @default(autoincrement())
+  gradingConfigurationId BigInt  @map("grading_configuration_id")
+  grade                  String  @db.VarChar(10)
+  minimumPercentage      Decimal @map("minimum_percentage") @db.Decimal(5, 2)
+  maximumPercentage      Decimal @map("maximum_percentage") @db.Decimal(5, 2)
+
+  gradingConfiguration GradingConfiguration @relation(fields: [gradingConfigurationId], references: [id])
+
+  @@unique([gradingConfigurationId, grade])
+  @@map("grade_rules")
+}
+
+model Result {
+  id                     BigInt    @id @default(autoincrement())
+  enrollmentId           BigInt    @map("enrollment_id")
+  gradingConfigurationId BigInt    @map("grading_configuration_id")
+  status                 String    @db.VarChar(20)
+  totalObtained          Decimal?  @map("total_obtained") @db.Decimal(10, 2)
+  totalMarks             Decimal?  @map("total_marks") @db.Decimal(10, 2)
+  percentage             Decimal?  @db.Decimal(5, 2)
+  grade                  String?   @db.VarChar(10)
+  passStatus             String?   @map("pass_status") @db.VarChar(20)
+  finalizedAt            DateTime? @map("finalized_at") @db.Timestamptz(6)
+  finalizedBy            BigInt?   @map("finalized_by")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  enrollment           Enrollment           @relation(fields: [enrollmentId], references: [id])
+  gradingConfiguration GradingConfiguration @relation(fields: [gradingConfigurationId], references: [id])
+  finalizedByUser      User?                @relation("FinalizedByUser", fields: [finalizedBy], references: [id])
+  resultSubjects       ResultSubject[]
+
+  @@index([enrollmentId])
+  @@map("results")
+}
+
+model ResultSubject {
+  id                BigInt   @id @default(autoincrement())
+  resultId          BigInt   @map("result_id")
+  subjectOfferingId BigInt   @map("subject_offering_id")
+  totalObtained     Decimal? @map("total_obtained") @db.Decimal(10, 2)
+  totalMarks        Decimal? @map("total_marks") @db.Decimal(10, 2)
+  percentage        Decimal? @db.Decimal(5, 2)
+  grade             String?  @db.VarChar(10)
+  passStatus        String?  @map("pass_status") @db.VarChar(20)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  result          Result          @relation(fields: [resultId], references: [id])
+  subjectOffering SubjectOffering @relation(fields: [subjectOfferingId], references: [id])
+
+  @@unique([resultId, subjectOfferingId])
+  @@map("result_subjects")
+}
+
+model Notification {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt    @map("user_id")
+  type      String    @db.VarChar(50)
+  title     String    @db.VarChar(255)
+  message   String
+  readAt    DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id          BigInt   @id @default(autoincrement())
+  actorUserId BigInt?  @map("actor_user_id")
+  action      String   @db.VarChar(100)
+  entityType  String   @map("entity_type") @db.VarChar(100)
+  entityId    BigInt?  @map("entity_id")
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  actorUser User? @relation(fields: [actorUserId], references: [id])
+
+  @@index([actorUserId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Session {
+  id         BigInt    @id @default(autoincrement())
+  userId     BigInt    @map("user_id")
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz(6)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model EmailVerificationToken {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
